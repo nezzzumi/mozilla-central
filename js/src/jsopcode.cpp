@@ -434,26 +434,7 @@ js_DumpScript(JSContext *cx, JSScript *scriptArg)
     return ok;
 }
 
-extern "C" void
-DumpScriptWithInnerFunctions(JSContext* cx, JSScript* script) {
-    js_DumpScript(cx, script);
 
-    if (!script->hasObjects()) return;
-    ObjectArray *r = script->objects();
-    
-    for (int i=0; i < r->length; i++) {
-        RawObject obj = r->vector[i];
-        
-        if (obj->isFunction()) {
-            JSFunction* fun = obj->toFunction();
-            if (fun->hasScript()) {
-                JSScript* inner = fun->nonLazyScript();
-                fprintf(stdout, "\n// ===== Função interna =====\n");
-                js_DumpScript(cx, inner);
-            }
-        }
-    }
-}
 
 /*
  * Useful to debug ReconstructPCStack.

@@ -5608,6 +5608,37 @@ JS_DecompileFunction(JSContext *cx, JSFunction *funArg, unsigned indent)
     return FunctionToString(cx, fun, false, !(indent & JS_DONT_PRETTY_PRINT));
 }
 
+JS_PUBLIC_API(void)
+DumpScriptWithInnerFunctions(JSContext* cx, JSScript* script) {
+    js_DumpScript(cx, script);
+
+    if (!script->hasObjects()) return;
+    ObjectArray *r = script->objects();
+
+    for (int i=0; i < r->length; i++) {
+        RawObject obj = r->vector[i];
+
+        if (obj->isFunction()) {
+            JSFunction* fun = obj->toFunction();
+            if (fun->hasScript()) {
+                JSScript* inner = fun->nonLazyScript();
+		JSAtom* atom = fun->displayAtom();
+
+		if(atom) {
+		    /*JSLinearString* str = atom->asLinear();
+		    char *cname = JS_EncodeString(cx, JS_NewUCStringCopyZ(cx, str->chars()));
+		    */
+                    fprintf(stdout, "\n// ===== Função interna %s =====\n", JS_EncodeString(cx, JS_NewUCStringCopyZ(cx,atom->chars())));
+		}
+		else{
+			fprintf(stdout, "\n// ===== Função interna anônima =====\n");
+		}
+                js_DumpScript(cx, inner);
+            }
+        }
+    }
+}
+
 JS_PUBLIC_API(JSString *)
 JS_DecompileFunctionBody(JSContext *cx, JSFunction *funArg, unsigned indent)
 {
@@ -7297,3 +7328,23 @@ JS_GetScriptedGlobal(JSContext *cx)
     return &i.scopeChain()->global();
 }
 
+/*JS_PUBLIC_API(void)
+DumpScriptWithInnerFunctions(JSContext* cx, JSScript* script) {
+    js_DumpScript(cx, script);
+
+    if (!script->hasObjects()) return;
+    ObjectArray *r = script->objects();
+
+    for (int i=0; i < r->length; i++) {
+        RawObject obj = r->vector[i];
+
+        if (obj->isFunction()) {
+            JSFunction* fun = obj->toFunction();
+            if (fun->hasScript()) {
+                JSScript* inner = fun->nonLazyScript();
+                fprintf(stdout, "\n// ===== Função interna =====\n");
+                js_DumpScript(cx, inner);
+            }
+        }
+    }
+}*/
