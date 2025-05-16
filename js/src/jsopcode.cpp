@@ -111,11 +111,12 @@ DumpScriptWithInnerFunctions(JSContext* cx, JSScript* script) {
     js_DumpScript(cx, script);
 
     if (!script->hasObjects()) return;
-
-    for (js::ObjectArray::Range r = script->objects()->all(); !r.empty(); r.popFront()) {
-        JSObject* obj = r.front();
-        if (obj->is<JSFunction>()) {
-            JSFunction* fun = &obj->as<JSFunction>();
+    ObjectArray *r = script->objects()
+    for (int i=0; i < r->length; i++) {
+        RawObject obj = objects->vector[i];
+        
+        if (obj->isFunction()) {
+            JSFunction* fun = obj->toFunction();
             if (fun->hasScript()) {
                 JSScript* inner = fun->nonLazyScript();
                 fprintf(stdout, "\n// ===== Função interna =====\n");
