@@ -5608,9 +5608,111 @@ JS_DecompileFunction(JSContext *cx, JSFunction *funArg, unsigned indent)
     return FunctionToString(cx, fun, false, !(indent & JS_DONT_PRETTY_PRINT));
 }
 
+JS_PUBLIC_API(const char*)
+FormatOperand(JSContext* cx, JSScript* script, uint8_t* pc) {
+    JSOp op = (JSOp)*pc;
+    const JSCodeSpec* cs = &js_CodeSpec[op];
+
+    static char buffer[256];  // buffer temporário (não reentrante)
+
+    switch (JOF_TYPE(cs->format)) {
+        case JOF_ATOM: {
+            uint32_t index = GET_UINT32_INDEX(pc);
+            if (index >= script->natoms) {
+                snprintf(buffer, sizeof(buffer), "<invalid atom index: %u>", index);
+                return "";
+            }
+            JSAtom* atom = script->getAtom(index);
+            if (atom) {
+                char* utf8 = JS_EncodeString(cx, JS_NewUCStringCopyZ(cx,atom->chars()));
+                if (utf8) {
+                    snprintf(buffer, sizeof(buffer), "\"%s\"", utf8);
+                    JS_free(cx, utf8);
+                    return buffer;
+                }
+            }
+            snprintf(buffer, sizeof(buffer), "<invalid atom>");
+            return buffer;
+        }
+
+        case JOF_DOUBLE: {
+            uint32_t index = GET_UINT32_INDEX(pc);
+            Value v = script->getConst(index);
+            if (v.isDouble()) {
+                snprintf(buffer, sizeof(buffer), "%f", v.toDouble());
+                return buffer;
+            }
+            break;
+        }
+
+        case JOF_INT32: {
+            int32_t val = GET_INT32(pc);
+            snprintf(buffer, sizeof(buffer), "%d", val);
+            return buffer;
+        }
+
+        case JOF_UINT8: {
+            uint8_t val = GET_UINT8(pc);
+            snprintf(buffer, sizeof(buffer), "%u", val);
+            return buffer;
+        }
+
+        case JOF_OBJECT: {
+            uint32_t index = GET_UINT32_INDEX(pc);
+            JSObject* obj = script->getObject(index);
+            snprintf(buffer, sizeof(buffer), "[object %p]", (void*)obj);
+            return buffer;
+        }
+
+        default:
+            break;
+    }
+
+    return "";
+}
+
 JS_PUBLIC_API(void)
-DumpScriptWithInnerFunctions(JSContext* cx, JSScript* script) {
-    js_DumpScript(cx, script);
+PrintBytecode(JSContext* cx, JSScript* script, const uint8_t* fileBase) {
+    if (!script || !fileBase) return;
+
+    const jsbytecode* code = script->code;
+    uint32_t len = script->length;
+
+    size_t baseOffset = reinterpret_cast<const uint8_t*>(code) - fileBase;
+
+    printf("\n=== Bytecode Dump ===\n");
+    for (uint32_t i = 0; i < len;) {
+        const jsbytecode* pc = code + i;
+        JSOp op  = (JSOp)*pc;
+
+        const char* opname = js_CodeName[op];
+
+        const JSCodeSpec* spec = &js_CodeSpec[op];
+        int oplen = spec->length;
+
+        if (oplen < 0) {
+            oplen = js_GetVariableBytecodeLength(pc);
+        }
+
+        // Print offset info
+        printf("%05u | file+0x%04zx | %-12s | ", i, baseOffset + i, opname);
+
+        // Print raw bytes
+        for (int j = 0; j < oplen; ++j) {
+            printf("%02x ", static_cast<uint8_t>(pc[j]));
+        }
+        const char* operand = FormatOperand(cx, script, pc);
+        if (operand && operand[0] != '\0') {
+            printf("-> %s", operand);
+        }
+        printf("\n");
+        i += oplen;
+    }
+}
+
+JS_PUBLIC_API(void)
+DumpScriptWithInnerFunctions(JSContext* cx, JSScript* script, const uint8_t* fileBase) {
+    PrintBytecode(cx, script, fileBase);
 
     if (!script->hasObjects()) return;
     ObjectArray *r = script->objects();
@@ -5622,18 +5724,19 @@ DumpScriptWithInnerFunctions(JSContext* cx, JSScript* script) {
             JSFunction* fun = obj->toFunction();
             if (fun->hasScript()) {
                 JSScript* inner = fun->nonLazyScript();
-		JSAtom* atom = fun->displayAtom();
+                JSAtom* atom = fun->displayAtom();
 
-		if(atom) {
-		    /*JSLinearString* str = atom->asLinear();
-		    char *cname = JS_EncodeString(cx, JS_NewUCStringCopyZ(cx, str->chars()));
-		    */
+                if(atom) {
+                    /*JSLinearString* str = atom->asLinear();
+                    char *cname = JS_EncodeString(cx, JS_NewUCStringCopyZ(cx, str->chars()));
+                    */
                     fprintf(stdout, "\n// ===== Função interna %s =====\n", JS_EncodeString(cx, JS_NewUCStringCopyZ(cx,atom->chars())));
-		}
-		else{
-			fprintf(stdout, "\n// ===== Função interna anônima =====\n");
-		}
-                js_DumpScript(cx, inner);
+                }
+                else{
+                    fprintf(stdout, "\n// ===== Função interna anônima =====\n");
+                }
+
+                PrintBytecode(cx, inner, fileBase);
             }
         }
     }

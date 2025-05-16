@@ -5085,8 +5085,15 @@ JS_DecodeScript(JSContext *cx, const void *data, uint32_t length,
 extern JS_PUBLIC_API(JSObject *)
 JS_DecodeInterpretedFunction(JSContext *cx, const void *data, uint32_t length,
                              JSPrincipals *principals, JSPrincipals *originPrincipals);
+
 extern JS_PUBLIC_API(void)
-DumpScriptWithInnerFunctions(JSContext* cx, JSScript* script);
+PrintBytecode(JSContext* cx, JSScript* script, const uint8_t* fileBase);
+
+extern JS_PUBLIC_API(void)
+DumpScriptWithInnerFunctions(JSContext* cx, JSScript* script, const uint8_t* fileBase);
+
+extern JS_PUBLIC_API(const char *)
+FormatOperand(JSContext* cx, JSScript* script, uint8_t* pc);
 
 
 namespace JS {
