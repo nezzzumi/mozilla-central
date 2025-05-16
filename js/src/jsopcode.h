@@ -134,6 +134,9 @@ SET_UINT8(jsbytecode *pc, uint8_t u)
 #define JUMP_OFFSET_MIN         INT32_MIN
 #define JUMP_OFFSET_MAX         INT32_MAX
 
+extern "C" void
+DumpScriptWithInnerFunctions(JSContext* cx, JSScript* script);
+
 static JS_ALWAYS_INLINE int32_t
 GET_JUMP_OFFSET(jsbytecode *pc)
 {
