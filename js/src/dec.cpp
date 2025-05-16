@@ -91,7 +91,7 @@ int main(int argc, const char* argv[]) {
         return 1;
     }
 
-    std::cout << JS_GetScriptLineExtent(cx, script) << std::endl;
+    // std::cout << JS_GetScriptLineExtent(cx, script) << std::endl;
     // JS_DumpBytecode(cx, script);
 
     //JS_DumpBytecode(cx, script);
