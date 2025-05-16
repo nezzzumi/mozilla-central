@@ -439,7 +439,8 @@ DumpScriptWithInnerFunctions(JSContext* cx, JSScript* script) {
     js_DumpScript(cx, script);
 
     if (!script->hasObjects()) return;
-    ObjectArray *r = script->objects()
+    ObjectArray *r = script->objects();
+    
     for (int i=0; i < r->length; i++) {
         RawObject obj = objects->vector[i];
         
