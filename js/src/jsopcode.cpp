@@ -106,6 +106,26 @@ const char *js_CodeName[] = {
 
 #define COUNTS_LEN 16
 
+extern "C" void
+DumpScriptWithInnerFunctions(JSContext* cx, JSScript* script) {
+    js_DumpScript(cx, script);
+
+    if (!script->hasObjects()) return;
+
+    for (js::ObjectArray::Range r = script->objects()->all(); !r.empty(); r.popFront()) {
+        JSObject* obj = r.front();
+        if (obj->is<JSFunction>()) {
+            JSFunction* fun = &obj->as<JSFunction>();
+            if (fun->hasScript()) {
+                JSScript* inner = fun->nonLazyScript();
+                fprintf(stdout, "\n// ===== Função interna =====\n");
+                js_DumpScript(cx, inner);
+            }
+        }
+    }
+}
+
+
 size_t
 js_GetVariableBytecodeLength(jsbytecode *pc)
 {
