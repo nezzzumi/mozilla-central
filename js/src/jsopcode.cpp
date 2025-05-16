@@ -442,7 +442,7 @@ DumpScriptWithInnerFunctions(JSContext* cx, JSScript* script) {
     ObjectArray *r = script->objects();
     
     for (int i=0; i < r->length; i++) {
-        RawObject obj = objects->vector[i];
+        RawObject obj = r->vector[i];
         
         if (obj->isFunction()) {
             JSFunction* fun = obj->toFunction();
