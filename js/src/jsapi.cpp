@@ -5657,10 +5657,38 @@ FormatOperand(JSContext* cx, JSScript* script, uint8_t* pc) {
             return buffer;
         }
 
+        // case JOF_OBJECT: {
+        //     uint32_t index = GET_UINT32_INDEX(pc);
+        //     JSObject* obj = script->getObject(index);
+        //     snprintf(buffer, sizeof(buffer), "[object %p]", (void*)obj);
+        //     return buffer;
+        // }
+
         case JOF_OBJECT: {
             uint32_t index = GET_UINT32_INDEX(pc);
+            if (!script->hasObjects()) {
+                snprintf(buffer, sizeof(buffer), "<no object array>");
+                return buffer;
+            }
+
+            ObjectArray* arr = script->objects();
+            if (index >= arr->length) {
+                snprintf(buffer, sizeof(buffer), "<invalid object index: %u>", index);
+                return buffer;
+            }
+
             JSObject* obj = script->getObject(index);
             snprintf(buffer, sizeof(buffer), "[object %p]", (void*)obj);
+
+            if (obj->isFunction()) {
+                JSFunction* fun = obj->toFunction();
+                if (fun->hasScript()) {
+                    JSScript* inner = fun->nonLazyScript();
+                    fprintf(stdout, "\n// ===== Lambda interna =====\n");
+                    PrintBytecode(cx, inner, nullptr);  // fileBase é null pois lambdas não vêm do .jsc diretamente
+                }
+            }
+
             return buffer;
         }
 
