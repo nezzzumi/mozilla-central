@@ -5087,10 +5087,10 @@ JS_DecodeInterpretedFunction(JSContext *cx, const void *data, uint32_t length,
                              JSPrincipals *principals, JSPrincipals *originPrincipals);
 
 extern JS_PUBLIC_API(void)
-PrintBytecode(JSContext* cx, JSScript* script, const uint8_t* fileBase);
+PrintBytecode(JSContext* cx, JSScript* script);
 
 extern JS_PUBLIC_API(void)
-DumpScriptWithInnerFunctions(JSContext* cx, JSScript* script, const uint8_t* fileBase);
+DumpScriptWithInnerFunctions(JSContext* cx, JSScript* script);
 
 extern JS_PUBLIC_API(const char *)
 FormatOperand(JSContext* cx, JSScript* script, uint8_t* pc);

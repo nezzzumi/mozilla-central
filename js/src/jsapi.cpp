@@ -84,6 +84,7 @@
 #include "vm/Shape-inl.h"
 #include "vm/Stack-inl.h"
 #include "vm/String-inl.h"
+#include <map>
 
 #if ENABLE_YARR_JIT
 #include "assembler/jit/ExecutableAllocator.h"
@@ -5608,6 +5609,9 @@ JS_DecompileFunction(JSContext *cx, JSFunction *funArg, unsigned indent)
     return FunctionToString(cx, fun, false, !(indent & JS_DONT_PRETTY_PRINT));
 }
 
+
+std::map<void*, std::string> lambdaNameMap;
+
 JS_PUBLIC_API(const char*)
 FormatOperand(JSContext* cx, JSScript* script, uint8_t* pc) {
     JSOp op = (JSOp)*pc;
@@ -5679,13 +5683,19 @@ FormatOperand(JSContext* cx, JSScript* script, uint8_t* pc) {
 
             JSObject* obj = script->getObject(index);
             snprintf(buffer, sizeof(buffer), "[object %p]", (void*)obj);
+            
+
+            auto it = lambdaNameMap.find(obj);
+            if (it != lambdaNameMap.end()) {
+                fprintf(stdout, "\n// ===== Lambda atribuída a: %s =====\n", it->second.c_str());
+            }
 
             if (obj->isFunction()) {
                 JSFunction* fun = obj->toFunction();
                 if (fun->hasScript()) {
                     JSScript* inner = fun->nonLazyScript();
                     fprintf(stdout, "\n// ===== Lambda interna =====\n");
-                    PrintBytecode(cx, inner, nullptr);  // fileBase é null pois lambdas não vêm do .jsc diretamente
+                    PrintBytecode(cx, inner);  // fileBase é null pois lambdas não vêm do .jsc diretamente
                 }
             }
 
@@ -5700,13 +5710,11 @@ FormatOperand(JSContext* cx, JSScript* script, uint8_t* pc) {
 }
 
 JS_PUBLIC_API(void)
-PrintBytecode(JSContext* cx, JSScript* script, const uint8_t* fileBase) {
-    if (!script || !fileBase) return;
+PrintBytecode(JSContext* cx, JSScript* script) {
+    if (!script) return;
 
     const jsbytecode* code = script->code;
     uint32_t len = script->length;
-
-    size_t baseOffset = reinterpret_cast<const uint8_t*>(code) - fileBase;
 
     printf("\n=== Bytecode Dump ===\n");
     for (uint32_t i = 0; i < len;) {
@@ -5723,7 +5731,7 @@ PrintBytecode(JSContext* cx, JSScript* script, const uint8_t* fileBase) {
         }
 
         // Print offset info
-        printf("%05u | file+0x%04zx | %-12s | ", i, baseOffset + i, opname);
+        printf("%05u | %-12s | ", i, opname);
 
         // Print raw bytes
         for (int j = 0; j < oplen; ++j) {
@@ -5735,12 +5743,43 @@ PrintBytecode(JSContext* cx, JSScript* script, const uint8_t* fileBase) {
         }
         printf("\n");
         i += oplen;
+
+        // Detecta padrão: lambda + setprop
+        if (i >= 10) {
+            JSOp prevOp = (JSOp)code[i - oplen];  // opcode atual
+            if (prevOp == JSOP_SETPROP) {
+                uint32_t objIndex = 0;
+
+                // Olha 2 instruções atrás: deve ser um lambda
+                JSOp twoBack = (JSOp)code[i - oplen - 5];  // lambda é opcode 0x82 + 4 bytes
+                if (twoBack == JSOP_LAMBDA) {
+                    objIndex = GET_UINT32_INDEX(&code[i - oplen - 4]);
+
+                    if (script->hasObjects() && objIndex < script->objects()->length) {
+                        JSObject* obj = script->getObject(objIndex);
+
+                        // Captura nome do setprop
+                        uint32_t atomIndex = GET_UINT32_INDEX(&code[i - oplen + 1]);
+                        if (atomIndex < script->natoms) {
+                            JSAtom* atom = script->getAtom(atomIndex);
+                            if (atom) {
+                                char* name = JS_EncodeString(cx, JS_NewUCStringCopyZ(cx, atom->chars()));
+                                if (name) {
+                                    lambdaNameMap[obj] = std::string(name);
+                                    JS_free(cx, name);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
 JS_PUBLIC_API(void)
-DumpScriptWithInnerFunctions(JSContext* cx, JSScript* script, const uint8_t* fileBase) {
-    PrintBytecode(cx, script, fileBase);
+DumpScriptWithInnerFunctions(JSContext* cx, JSScript* script) {
+    PrintBytecode(cx, script);
 
     if (!script->hasObjects()) return;
     ObjectArray *r = script->objects();
@@ -5764,7 +5803,7 @@ DumpScriptWithInnerFunctions(JSContext* cx, JSScript* script, const uint8_t* fil
                     fprintf(stdout, "\n// ===== Função interna anônima =====\n");
                 }
 
-                PrintBytecode(cx, inner, fileBase);
+                PrintBytecode(cx, inner);
             }
         }
     }
