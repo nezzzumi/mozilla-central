@@ -5661,6 +5661,12 @@ FormatOperand(JSContext* cx, JSScript* script, uint8_t* pc) {
             return buffer;
         }
 
+        case JOF_UINT16: {
+            uint16_t val = GET_UINT16(pc);
+            snprintf(buffer, sizeof(buffer), "%u", val);
+            return buffer;
+        }
+
         // case JOF_OBJECT: {
         //     uint32_t index = GET_UINT32_INDEX(pc);
         //     JSObject* obj = script->getObject(index);
