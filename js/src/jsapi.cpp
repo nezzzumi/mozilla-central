@@ -5616,8 +5616,19 @@ JS_PUBLIC_API(const char*)
 FormatOperand(JSContext* cx, JSScript* script, uint8_t* pc) {
     JSOp op = (JSOp)*pc;
     const JSCodeSpec* cs = &js_CodeSpec[op];
+    const char* opname = js_CodeName[op];
 
     static char buffer[256];  // buffer temporário (não reentrante)
+    
+    if(strcmp(opname, "one") == 0){
+        snprintf(buffer, sizeof(buffer), "1");
+        return buffer;
+    }
+    
+    if(strcmp(opname, "zero") == 0){
+        snprintf(buffer, sizeof(buffer), "0");
+        return buffer;
+    }
 
     switch (JOF_TYPE(cs->format)) {
         case JOF_ATOM: {
@@ -5638,7 +5649,7 @@ FormatOperand(JSContext* cx, JSScript* script, uint8_t* pc) {
             snprintf(buffer, sizeof(buffer), "<invalid atom>");
             return buffer;
         }
-
+        
         case JOF_DOUBLE: {
             uint32_t index = GET_UINT32_INDEX(pc);
             Value v = script->getConst(index);
